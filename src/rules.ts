@@ -1,5 +1,5 @@
 /**
- * Fill-in-the-blank shlokas. No DOM and no three.js: a pinch grabs a word tile, a release drops it
+ * Fill-in-the-blank shlokas. No DOM and no three.js: a pinch or a fist grabs a word tile, a release drops it
  * on a blank. Positions come in as screen-space spots (0..1) measured by the wiring each frame.
  */
 import { milestoneSummary, type Shlok } from './shlokas';

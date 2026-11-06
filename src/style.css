@@ -63,14 +63,24 @@ button:hover { filter: brightness(1.05); }
 }
 .title-card h1 { margin: 12px 0 0; font-size: 58px; line-height: 1; font-weight: 800; letter-spacing: -0.03em; }
 .lead { margin: 14px 0 0; color: var(--soft); font-size: 18px; line-height: 1.45; font-weight: 700; }
-.pinch { width: 168px; height: 108px; margin: 18px auto 0; display: block; }
-.pinch .palm { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
-.pinch .index, .pinch .thumb { fill: none; stroke: var(--blue); stroke-width: 4; stroke-linecap: round; transform-origin: 30px 54px; }
-.pinch .word { fill: #fff; stroke: #7eb0e4; stroke-width: 2; }
-.pinch .index { animation: pinch-i 2.2s ease-in-out infinite; }
-.pinch .thumb { animation: pinch-t 2.2s ease-in-out infinite; }
-@keyframes pinch-i { 0%, 15% { transform: rotate(-12deg); } 45%, 70% { transform: rotate(0); } 100% { transform: rotate(-12deg); } }
-@keyframes pinch-t { 0%, 15% { transform: rotate(12deg); } 45%, 70% { transform: rotate(0); } 100% { transform: rotate(12deg); } }
+.ways { display: flex; justify-content: center; gap: 10px; margin: 16px 0 0; }
+.ways span {
+  background: #e7f2ff; color: var(--deep); border-radius: 999px;
+  padding: 8px 14px; font-size: 16px; font-weight: 800;
+}
+.credits-btn { margin-top: 14px; padding: 6px 12px; font-size: 13px; }
+.credits {
+  position: fixed; inset: 0; z-index: 8; display: grid; place-items: center;
+  padding: 24px; background: rgba(22, 52, 92, 0.28);
+}
+.credits-card {
+  width: min(460px, 100%); padding: 28px 28px 22px; text-align: center;
+}
+.credits-card h2 { margin: 0; font-size: 28px; letter-spacing: -0.03em; }
+.credits-card p { margin: 14px 0 0; color: var(--soft); font-size: 16px; line-height: 1.5; font-weight: 700; }
+.credits-contact { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+.credits-contact a { color: var(--blue); font-weight: 800; }
+.credits-card button { margin-top: 18px; padding: 8px 16px; font-size: 14px; }
 
 .map {
   position: fixed; inset: 0; z-index: 3; padding: 32px 48px 24px;
@@ -102,7 +112,9 @@ button:hover { filter: brightness(1.05); }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   pointer-events: none;
 }
-.pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.pills { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.back { pointer-events: auto; padding: 8px 14px; font-size: 14px; }
+.map .back { margin: 0 0 10px; }
 .hud-mid { font-weight: 800; font-size: 18px; }
 .score { text-align: right; }
 .score b { font-size: 32px; line-height: 1; display: block; }
@@ -122,10 +134,13 @@ button:hover { filter: brightness(1.05); }
 .blank { border: 2px dashed #7eb0e4; background: rgba(255, 255, 255, 0.72); color: transparent; }
 .filled { background: var(--goodbg); color: var(--good); border: 2px solid #b7e4c8; }
 .support {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+  display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-start;
   margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
 }
-.support p { margin: 4px 0 0; color: var(--soft); font-size: 15px; line-height: 1.45; font-weight: 700; }
+.hint-col { flex: 1 1 220px; min-width: 0; }
+.hint { padding: 8px 14px; font-size: 14px; }
+.hint[aria-expanded="true"] { background: #e7f2ff; }
+.hint-text { margin: 8px 0 0; color: var(--soft); font-size: 15px; line-height: 1.45; font-weight: 700; }
 .tray {
   min-height: 96px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px;
   background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(255, 255, 255, 0.85); border-radius: 24px;
@@ -156,7 +171,7 @@ button:hover { filter: brightness(1.05); }
   .top h2 { font-size: 30px; }
   .board { left: 12px; right: 12px; top: 78px; }
   .verse-card { padding: 16px; }
-  .support { grid-template-columns: 1fr; gap: 10px; }
+  .support { gap: 10px; }
   .hud { left: 12px; right: 12px; }
   .title-card h1 { font-size: 42px; }
   .title-card { padding: 24px 18px 18px; }
@@ -166,6 +181,6 @@ button:hover { filter: brightness(1.05); }
 }
 @media (max-width: 560px) {
   .grid { grid-template-columns: 1fr 1fr; }
-  .hud-mid { display: none; }
+  #progress { display: none; }
   .tile { font-size: 16px; min-height: 44px; }
 }

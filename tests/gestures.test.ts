@@ -1,8 +1,8 @@
-// The gesture this game asks for (a pinch) must be recognised from synthetic hands through the real engine, for
-// both hands, and the latch must turn it into exactly one press and one release.
+// A pinch and a closed fist must both read as a grab, through the real engine, for both hands.
+// The latch must turn that into exactly one press and one release.
 import { describe, expect, it } from 'vitest';
 import { GestureEngine, syntheticHand, SYNTHETIC_POSES as P } from '../src/hand-gesture-kit';
-import { PinchLatch } from '../src/pinch';
+import { fistStrength, grabStrength, PinchLatch } from '../src/pinch';
 
 const run = (pose: typeof P.open, handedness: 'Left' | 'Right' = 'Right', frames = 10) => {
   const e = new GestureEngine();
@@ -18,6 +18,16 @@ describe('gestures', () => {
       expect(run(P.open, hand).pinch).toBeLessThan(0.3);
     });
   }
+
+  it('a closed fist grabs even with the pinch ignored, and an open or pointing hand does not', () => {
+    const fist = run(P.fist).features.curl;
+    const thumbUp = run(P['thumbs-up']).features.curl;
+    expect(grabStrength(0, fist)).toBeGreaterThan(0.75);
+    expect(fistStrength(thumbUp)).toBeGreaterThan(0.75);
+    for (const pose of [P.open, P.point, P.pinch, P.gun, P.victory, P.claw]) {
+      expect(fistStrength(run(pose).features.curl)).toBeLessThan(0.3);
+    }
+  });
 
   it('the latch gives one press and one release for a pinch with jitter', () => {
     const l = new PinchLatch();

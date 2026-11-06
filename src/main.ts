@@ -1,10 +1,9 @@
 /**
- * Wiring: input → rules → scene and sound, plus the title, milestone path and results.
+ * Wiring: input → rules → scene, plus the title, milestone path and results.
  *
  * URL flags:
  *   ?bot=1         a synthetic player plays through the real gesture engine
  *   ?autostart=1   skip the title and start milestone 1 with the mouse
- *   ?mute=1        no sound
  *   ?seed=N        the same blanks every time
  *   ?groups=N      shlokas in a set (default 3)
  *   ?milestone=N   which milestone autostart and the bot begin on
@@ -19,7 +18,6 @@ import { drawHand } from './hand-gesture-kit';
 import { Input } from './input';
 import { PinchLatch } from './pinch';
 import { Bot } from './bot';
-import { Sound } from './audio';
 import { Scene } from './scene';
 import { SHLOKAS, groupLabel } from './shlokas';
 import {
@@ -36,11 +34,9 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const world = createWorld(SHLOKAS, Number(q.get('seed')) || Date.now(), Number(q.get('groups')) || undefined);
 const scene = new Scene($('stage'));
 const input = new Input($<HTMLVideoElement>('cam'), document.body);
-const sound = new Sound();
 const latch = new PinchLatch();
 const bot = flag('bot') ? new Bot() : null;
 const speed = Number(q.get('speed')) || 1;
-sound.muted = flag('mute');
 
 let best = 0;
 const done = new Set<string>();
@@ -53,6 +49,8 @@ try {
 let resultsAt = 0;
 let resultsPinch = false;
 let viewKey = '';
+let hintKey = '';
+const hintOpen = { guj: false, eng: false };
 
 function saveDone() {
   try { localStorage.setItem(DONE_KEY, JSON.stringify([...done])); } catch { /* ignore */ }
@@ -64,6 +62,24 @@ function show(id: 'title' | 'map' | 'play' | 'results') {
   $('board').classList.toggle('hidden', id !== 'play');
   $('hud').classList.toggle('hidden', id !== 'play');
   $('results').classList.toggle('hidden', id !== 'results');
+}
+
+type HintId = 'guj' | 'eng';
+
+function applyHint(which: HintId) {
+  const open = hintOpen[which];
+  const btn = $(which === 'guj' ? 'b-guj' : 'b-eng');
+  const text = $(which === 'guj' ? 'gujarati' : 'english');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  btn.textContent = open
+    ? (which === 'guj' ? 'Hide Gujarati' : 'Hide English')
+    : (which === 'guj' ? 'Gujarati hint' : 'English hint');
+  text.classList.toggle('hidden', !open);
+}
+
+function toggleHint(which: HintId) {
+  hintOpen[which] = !hintOpen[which];
+  applyHint(which);
 }
 
 function spots(selector: string): Spot[] {
@@ -87,6 +103,15 @@ function over(el: HTMLElement, x: number, y: number) {
   const r = el.getBoundingClientRect();
   const px = x * innerWidth, py = y * innerHeight;
   return px >= r.left && px <= r.right && py >= r.top && py <= r.bottom;
+}
+
+/** A visible hint or mode button under the hand, so a pinch can press it. */
+function uiAt(x: number, y: number): string | null {
+  for (const el of document.querySelectorAll<HTMLElement>('[data-ui]')) {
+    if (el.closest('.hidden')) continue;
+    if (over(el, x, y)) return el.id;
+  }
+  return null;
 }
 
 function paintMap() {
@@ -127,8 +152,14 @@ function paintPuzzle() {
   $('mile-pill').textContent = `Milestone ${p.shlok.milestone}`;
   $('type-pill').textContent = groupLabel(p.shlok.groupType);
   $('progress').textContent = `Shloka ${p.shlok.shlokNumber} · ${world.index + 1} of ${world.set.length}`;
+  const nextHint = `${p.shlok.shlokGroup}:${world.index}`;
+  if (nextHint !== hintKey) { hintKey = nextHint; hintOpen.guj = false; hintOpen.eng = false; }
   $('gujarati').textContent = p.shlok.gujarati;
   $('english').textContent = p.shlok.english;
+  $('b-guj').classList.toggle('hidden', !p.shlok.gujarati);
+  $('b-eng').classList.toggle('hidden', !p.shlok.english);
+  applyHint('guj');
+  applyHint('eng');
   for (const piece of p.pieces) {
     if (piece.kind === 'gap') {
       const lines = piece.text.split('\n');
@@ -187,9 +218,19 @@ function openMap() {
   show('map');
 }
 
+function goBack() {
+  latch.reset();
+  world.held = null;
+  viewKey = '';
+  if (world.phase === 'play' || world.phase === 'results') openMap();
+  else if (world.phase === 'map') {
+    world.phase = 'title';
+    show('title');
+  }
+}
+
 function beginSet(milestone: number) {
   if (world.phase === 'play') return;
-  sound.start();
   startSet(world, milestone, done);
   latch.reset();
   viewKey = '';
@@ -212,7 +253,6 @@ function finish() {
   $('r-line').textContent = isBest && world.score > 0 ? `${across} A new best.` : `${across} Best so far: ${best}.`;
   resultsAt = performance.now();
   resultsPinch = false;
-  sound.end();
   show('results');
 }
 
@@ -225,8 +265,15 @@ function nextMilestone() {
   return miles[0]?.milestone ?? 1;
 }
 
+function setCredits(open: boolean) {
+  $('credits').classList.toggle('hidden', !open);
+}
+
+$('b-credits').addEventListener('click', () => setCredits(true));
+$('b-credits-close').addEventListener('click', () => setCredits(false));
+$('credits').addEventListener('click', (e) => { if (e.target === $('credits')) setCredits(false); });
+
 $('b-cam').addEventListener('click', async () => {
-  sound.start();
   $('err').textContent = '';
   $('b-cam').textContent = 'Starting the camera…';
   try {
@@ -239,6 +286,10 @@ $('b-cam').addEventListener('click', async () => {
   }
 });
 $('b-mouse').addEventListener('click', () => { input.setMode('pointer'); openMap(); });
+$('b-back').addEventListener('click', () => { if (world.phase === 'play') goBack(); });
+$('b-back-map').addEventListener('click', () => { if (world.phase === 'map') goBack(); });
+$('b-guj').addEventListener('click', () => { if (world.phase === 'play') toggleHint('guj'); });
+$('b-eng').addEventListener('click', () => { if (world.phase === 'play') toggleHint('eng'); });
 $('milestones').addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest('button');
   if (!btn || world.phase !== 'map') return;
@@ -249,10 +300,13 @@ $('b-path').addEventListener('click', () => { if (world.phase === 'results') ope
 $('tray').addEventListener('pointerdown', (e) => e.preventDefault());
 
 addEventListener('keydown', (e) => {
-  if (e.key === 'm' || e.key === 'M') sound.setMuted(!sound.muted);
-  if (e.code !== 'Space') return;
+  if (e.key === 'Escape') {
+    if (!$('credits').classList.contains('hidden')) setCredits(false);
+    else goBack();
+    return;
+  }
+  if (e.code !== 'Space' || !$('credits').classList.contains('hidden')) return;
   e.preventDefault();
-  sound.start();
   if (world.phase === 'title') { if (input.mode === 'none') input.setMode('pointer'); openMap(); }
   else if (world.phase === 'map') beginSet(nextMilestone());
   else if (world.phase === 'results') beginSet(world.milestone);
@@ -267,14 +321,16 @@ if (bot || flag('autostart')) {
 
 const pv = $<HTMLCanvasElement>('preview'), pg = pv.getContext('2d')!;
 function drawPreview() {
-  if (input.mode !== 'camera') return;
+  if (!input.cameraReady) return;
   const v = input.hands.video, w = pv.width, h = pv.height;
+  if (!v.videoWidth) return;
   pg.save(); pg.scale(-1, 1); pg.drawImage(v, -w, 0, w, h); pg.restore();
-  if (input.hand) drawHand(pg, input.hand.landmarks, w, h, { color: '#16345c', lineWidth: 2, jointRadius: 2 });
+  if (input.mode === 'camera' && input.hand) drawHand(pg, input.hand.landmarks, w, h, { color: '#16345c', lineWidth: 2, jointRadius: 2 });
 }
 
 const ring = $('hand-ring');
 let last = performance.now(), t = 0, fps = 60;
+let modeSeen = input.mode;
 function frame(now: number) {
   requestAnimationFrame(frame);
   const real = Math.min(0.05, (now - last) / 1000);
@@ -283,18 +339,36 @@ function frame(now: number) {
   const dt = real * speed;
   t += dt;
 
+  if (input.mode !== modeSeen) {
+    latch.reset();
+    if (world.held !== null) { world.held = null; viewKey = ''; }
+    modeSeen = input.mode;
+  }
+  const hideBack = input.mode === 'bot';
+  $('b-back').classList.toggle('hidden', hideBack);
+  $('b-back-map').classList.toggle('hidden', hideBack);
+  $('preview').classList.toggle('hidden', !input.cameraReady);
+
   if (bot) input.bot = bot.update(world, { tiles: spots('#tray .tile'), blanks: spots('#verse .blank') }, dt, scene.aspect);
   input.update(real);
   const h = input.hand;
-  const edge = latch.update(h ? h.pinch : 0);
+  const creditsOpen = !$('credits').classList.contains('hidden');
+  const edge = latch.update(h ? h.grab : 0);
   if (h && edge === 'press') {
-    if (world.phase === 'play') press(world, h.screen.x, h.screen.y, spots('#tray .tile'), scene.aspect);
+    const ui = uiAt(h.screen.x, h.screen.y);
+    if (creditsOpen) {
+      if (ui === 'b-credits-close') setCredits(false);
+    } else if (ui === 'b-credits') setCredits(true);
+    else if (ui === 'b-back' || ui === 'b-back-map') goBack();
+    else if (ui === 'b-guj') toggleHint('guj');
+    else if (ui === 'b-eng') toggleHint('eng');
+    else if (world.phase === 'play') press(world, h.screen.x, h.screen.y, spots('#tray .tile'), scene.aspect);
     else if (world.phase === 'map') {
       const card = hitSpot(spots('#milestones button'), h.screen.x, h.screen.y, scene.aspect);
       if (card) beginSet(card.id);
     } else if (world.phase === 'results' && now - resultsAt > 1200) resultsPinch = true;
   }
-  if (h && edge === 'release') {
+  if (h && edge === 'release' && !creditsOpen) {
     if (resultsPinch) {
       resultsPinch = false;
       if (world.phase === 'results') {
@@ -303,8 +377,7 @@ function frame(now: number) {
       }
     } else if (world.phase === 'play') {
       const drop = release(world, h.screen.x, h.screen.y, spots('#verse .blank'), scene.aspect);
-      if (drop === 'correct') { scene.burst(h.screen.x, h.screen.y); sound.chime(world.score); }
-      else if (drop === 'wrong') sound.bonk();
+      if (drop === 'correct') scene.burst(h.screen.x, h.screen.y);
     }
   }
 
@@ -319,7 +392,7 @@ function frame(now: number) {
     ring.classList.remove('hidden');
     ring.style.left = `${h.screen.x * innerWidth}px`;
     ring.style.top = `${h.screen.y * innerHeight}px`;
-    ring.style.transform = `scale(${1 - h.pinch * 0.28})`;
+    ring.style.transform = `scale(${1 - h.grab * 0.28})`;
     if (world.held !== null) {
       $('floater').style.left = `${h.screen.x * innerWidth}px`;
       $('floater').style.top = `${h.screen.y * innerHeight}px`;
@@ -346,7 +419,7 @@ Object.defineProperty(window, '__game', {
     held: world.held,
     tiles: world.puzzle?.tiles.map((t) => ({ id: t.id, word: t.word, answer: t.answer })) ?? [],
     mode: input.mode,
-    hand: input.hand ? { ...input.hand.screen, pinch: input.hand.pinch } : null,
+    hand: input.hand ? { ...input.hand.screen, pinch: input.hand.pinch, grab: input.hand.grab } : null,
     fps: Math.round(fps),
     dpr: scene.renderer.getPixelRatio(),
     best,
