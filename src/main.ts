@@ -388,7 +388,7 @@ function frame(now: number) {
 
   syncView();
   $('score').textContent = String(world.score);
-  if (h && world.phase === 'play') {
+  if (h) {
     ring.classList.remove('hidden');
     ring.style.left = `${h.screen.x * innerWidth}px`;
     ring.style.top = `${h.screen.y * innerHeight}px`;
